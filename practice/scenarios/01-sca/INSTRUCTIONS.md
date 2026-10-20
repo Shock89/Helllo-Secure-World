@@ -8,7 +8,7 @@ Ver un Security Gate de SCA fallar en CI, entender por qué, y aprender a correg
 
 - Completaste la configuración en `practice/SETUP.md`
 - Tu fork tiene GitHub Actions habilitado
-- Tienes Node.js 18+ instalado localmente
+- Usa Node.js 22 en Codespaces, igual que los workflows del repositorio
 
 ## El problema
 
@@ -17,6 +17,9 @@ Esta versión tiene el CVE-2020-8203 (Prototype Pollution, severidad HIGH).
 El job `security` de CI ejecuta `npm audit --audit-level=high`, lo que detectará este problema.
 
 ## Pasos
+
+> Ejecuta los comandos desde la raíz del proyecto en Codespaces. No reemplaces el `package.json` raíz con el archivo de muestra de esta carpeta. Usa `npm install` para que npm mantenga `package.json` y `package-lock.json` sincronizados.
+
 
 ### 1. Introduce la dependencia vulnerable en tu fork
 
@@ -36,8 +39,8 @@ npm audit --audit-level=high
 
 Deberías ver algo como:
 ```
-lodash  <4.17.21
-Severity: high
+lodash  <=4.17.23
+Severity: high o critical
 Prototype Pollution - https://github.com/advisories/GHSA-jf85-cpcp-j695
 ```
 
@@ -46,7 +49,7 @@ Prototype Pollution - https://github.com/advisories/GHSA-jf85-cpcp-j695
 ```bash
 git add package.json package-lock.json
 git commit -m "lab: introduce dependencia vulnerable para práctica SCA"
-git push origin lab/sca-vulnerable-dep
+git push -u origin lab/sca-vulnerable-dep
 ```
 
 En GitHub, abre un Pull Request desde `lab/sca-vulnerable-dep` hacia `main`.
@@ -58,7 +61,7 @@ checks funcionales debe pasar. `Lab Validation` publicará el resultado del esce
 En la pestaña **Actions** de tu fork, verás que el job `security` falla:
 - **quality** ✓ PASSED
 - **test** ✓ PASSED
-- **security** ✗ FAILED — npm audit reporta HIGH vulnerability
+- **security** ✗ FAILED — npm audit reporta una vulnerabilidad HIGH o CRITICAL
 
 El PR mostrará el check de seguridad como fallido. `Lab Validation` también falla el
 gate hasta que se corrija la dependencia.
@@ -68,7 +71,7 @@ Si tienes Branch Protection con Required Status Checks, el PR no podrá mergears
 
 ```bash
 # Actualiza lodash a la versión corregida
-npm install lodash@^4.17.21
+npm install --save-exact lodash@4.18.1
 git add package.json package-lock.json
 git commit -m "fix: actualizar lodash a versión segura (CVE-2020-8203)"
 git push
@@ -91,3 +94,4 @@ revisión; no es necesario mergearlo para entregar la evidencia.
 Cuando el PR tenga todos los checks en verde, el workflow `lab-validate.yml` publicará
 un comentario con un hash de servidor `HSW-PRACTICE-XXXXXXXXXXXXXXXX`.
 Comparte ese código con tu instructor junto con tu código HSW del simulador.
+
