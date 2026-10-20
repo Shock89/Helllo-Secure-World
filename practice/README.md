@@ -1,70 +1,16 @@
-# Hello Secure World — Práctica Real en GitHub
+# Hello Secure World — Práctica GitHub Codespaces
 
-Esta carpeta contiene escenarios hands-on que debes ejecutar en tu propio fork del repositorio.
-El objetivo es que experimentes en vivo los controles de seguridad que estudiaste en el simulador.
+Tres escenarios reproducibles para practicar SCA, gestión de secretos y SAST. Sigue la guía Word incluida por separado y usa un fork propio. Todo el trabajo de la terminal se realiza en GitHub Codespaces; no clones el repositorio en tu computadora.
 
-## Panorama general
+| Escenario | Archivo que se lleva al proyecto | Hallazgo inicial | Corrección esperada |
+|---|---|---|---|
+| 01 SCA | `package.json` y `package-lock.json` raíz | `lodash@4.17.4`, hallazgo HIGH o CRITICAL | `lodash@4.18.1` |
+| 02 Secret | `config/settings.js` | marcador inerte simulado por Lab Validation | variable `process.env.API_TOKEN` |
+| 03 SAST | `src/demo-insecure.js` | flujo de URL a `innerHTML` | `textContent` |
 
-| # | Escenario | Control | Resultado esperado |
-|---|-----------|---------|-------------------|
-| 01 | Dependencia vulnerable | SCA (npm audit) | CI falla con HIGH vuln |
-| 02 | Token en código fuente | Secret Scanning | Push Protection bloquea el push |
-| 03 | DOM XSS con innerHTML | SAST (CodeQL) | Alerta `js/xss` en el PR |
+## Importante
 
-Cada escenario incluye:
-1. Un archivo con el problema intencionado
-2. `INSTRUCTIONS.md` con los pasos detallados
-3. Un flujo completo: introducir el problema → observar el control → aplicar el fix → verificar
+El `package.json` de `scenarios/01-sca` describe únicamente el ejemplo. No lo copies sobre el manifiesto raíz. Ejecuta `npm install --save-exact lodash@4.17.4` desde la raíz para conservar scripts y dependencias del proyecto y actualizar el lockfile correctamente.
 
-## Flujo general
+La carpeta `node_modules/` se instala con `npm ci` en Codespaces y no se versiona. El marcador del escenario de secretos es ficticio; nunca uses una credencial real. El gate de XSS se limita al archivo de práctica para no fallar por ejemplos didácticos del simulador.
 
-```
-1. Fork del repositorio → clonar → configurar (ver SETUP.md)
-2. Escenario 01: crear rama → introducir package.json → abrir PR → observar fallo SCA → corregir
-3. Escenario 02: crear rama → copiar settings.js → intentar push → ver bloqueo → corregir
-4. Escenario 03: crear rama → copiar demo-insecure.js → abrir PR → ver alerta CodeQL → corregir
-5. Recopilar el código HSW-PRACTICE del comentario de CI en cada PR
-6. Compartir tus códigos (HSW del simulador + HSW-PRACTICE por escenario) con tu instructor
-```
-
-## Prerequisitos
-
-- Cuenta de GitHub (gratuita)
-- Git instalado localmente
-- Node.js 18 o superior
-- Completar la configuración en [`SETUP.md`](SETUP.md) antes de empezar
-
-## Escenarios
-
-- [01 — SCA: Dependencia Vulnerable](scenarios/01-sca/INSTRUCTIONS.md)
-- [02 — Secret Scanning: Token en Código](scenarios/02-secret/INSTRUCTIONS.md)
-- [03 — SAST/CodeQL: DOM XSS con innerHTML](scenarios/03-xss/INSTRUCTIONS.md)
-
-## Código de verificación
-
-Cuando completes un escenario correctamente (PR con todos los checks en verde),
-el workflow `lab-validate.yml` publicará automáticamente en el PR un comentario con:
-
-```
-HSW-PRACTICE-[escenario]-XXXXXXXXXXXXXXXX
-```
-
-Este es tu código de verificación de servidor — complementa el código HSW que generó
-el simulador y permite al instructor validar que completaste la práctica en GitHub real.
-
-## Preguntas frecuentes
-
-**¿Necesito pagar GitHub?**
-No. Todas las características usadas (GitHub Actions, Secret Scanning, Code scanning)
-están disponibles en repositorios públicos gratuitos.
-
-**¿Qué pasa si el token en el escenario 02 no es bloqueado?**
-Secret Scanning + Push Protection debe estar habilitado en tu fork. Verifica la
-configuración en `SETUP.md`. En repositorios públicos está habilitado por defecto.
-
-**¿CodeQL tardó más de 15 minutos?**
-El primer análisis puede tardar. Si después de 20 minutos no hay resultado,
-cancela el run en Actions y vuelve a hacer push para reiniciarlo.
-
-**¿Puedo hacer los escenarios en cualquier orden?**
-Sí. Son independientes entre sí, aunque `SETUP.md` solo necesitas configurarlo una vez.

@@ -1,104 +1,27 @@
-# Configuración del Fork — Hello Secure World
+# Preparación desde GitHub Codespaces
 
-Configura tu fork una sola vez antes de comenzar los escenarios.
-Esto toma aproximadamente 10 minutos.
+Sigue la guía Word que acompaña este paquete. El ZIP que contiene esta carpeta incluye el proyecto completo. En Codespaces, extrae el ZIP en `/tmp` y copia todo su contenido a la raíz del fork con `cp -a /tmp/hsw-actualizado/Hello-Secure-World-Lab-CIB204-Reinicio/. .`. Esto garantiza que existan el `package.json` y `package-lock.json` principales, además de `.nvmrc`, `.github/workflows`, código, pruebas y escenarios. El ZIP no incluye `.git` ni `node_modules`; el historial se conserva y las dependencias se instalan con `npm ci`. El lockfile actualizado corrige hallazgos HIGH transitivos del punto de partida; conserva sin cambios el `package.json` raíz.
 
-## Paso 1: Fork y clon
+## Regla importante para el escenario SCA
 
-1. En la página del repositorio original, haz clic en **Fork** (arriba a la derecha)
-2. Selecciona tu cuenta de GitHub como destino
-3. Clona tu fork localmente:
+Trabaja siempre desde la raíz del repositorio. No reemplaces `package.json` raíz con `practice/scenarios/01-sca/package.json`: ese archivo es solo una muestra educativa y no contiene las dependencias ni los scripts del proyecto. Copia el proyecto completo del ZIP para comenzar con el manifiesto y lockfile raíz sincronizados; después usa npm para modificar las dependencias del ejercicio. Introduce la dependencia en el manifiesto raíz con `npm install --save-exact lodash@4.17.4`; npm actualizará ambos archivos de forma sincronizada.
 
-```bash
-git clone https://github.com/TU_USUARIO/Hello_Secure_World.git
-cd Hello_Secure_World
-npm install
-```
+## Comprobación inicial
 
-4. Verifica que los tests pasan:
+Usa Node.js 22, igual que los workflows. Si `node --version` no muestra una versión 22.x y `nvm` está disponible, ejecuta `nvm install 22 && nvm use 22`. En Codespaces (raíz del repositorio), ejecuta `node --version`, `npm --version`, `npm ci`, `npm run lint`, `npm test`, `npm run build` y `npm audit --audit-level=high`. El estado inicial esperado es sin errores y sin vulnerabilidades HIGH ni CRITICAL. No incluyas `node_modules/` en commits ni en el ZIP; `.gitignore` lo excluye.
 
-```bash
-npm test
-```
+Después de copiar archivos abre el PR de preparación y mézclalo a `main` una vez que termine CI. Ejecuta cada escenario en una rama aparte, con un Pull Request hacia `main`. En la fase vulnerable, que SCA o Lab Validation fallen es intencional; deben pasar después de la corrección.
 
-## Paso 2: Habilitar GitHub Actions
+## Si Actions muestra ENOENT y no encuentra package.json
 
-En tu fork:
-1. Ve a la pestaña **Actions**
-2. Si ves "Workflows aren't being run on this forked repository", haz clic en **I understand my workflows, go ahead and enable them**
+Este mensaje significa que falta el manifiesto principal en la raíz del repositorio. Ejecuta `pwd` y `find . -maxdepth 4 -name package.json -not -path "*/node_modules/*"`. Debe aparecer `./package.json` además de `./practice/scenarios/01-sca/package.json`. Si solo aparece el segundo, repite la copia completa del ZIP a la raíz. No renombres el manifiesto del escenario.
 
-Los tres workflows que se activarán son:
-- `CI` — quality, test, security
-- `CodeQL Analysis` — análisis SAST de JavaScript
-- `Lab Validation` — validación de escenarios de práctica
+## Si `npm ci` falla
 
-## Paso 3: Habilitar Secret Scanning y Push Protection
+`npm ci` necesita que `package.json` y `package-lock.json` coincidan. En el PR SCA restaura ambos desde la rama `main` del fork y vuelve a agregar la dependencia usando npm: `git show origin/main:package.json > package.json`, `git show origin/main:package-lock.json > package-lock.json`, `npm install --save-exact lodash@4.17.4`. Luego corre lint y pruebas, confirma los dos archivos y súbelos. No agregues `node_modules/`.
 
-En repositorios **públicos** esto está habilitado por defecto.
-Si tu fork es privado, habilítalo manualmente:
+## Alcance de los escenarios
 
-1. Ve a **Settings** → **Security** → **Code security and analysis**
-2. En "Secret scanning": haz clic en **Enable**
-3. En "Push protection": haz clic en **Enable**
-
-## Paso 4: Habilitar CodeQL
-
-CodeQL se activa automáticamente con el workflow `codeql.yml` incluido en el repositorio.
-No hay configuración adicional necesaria — el análisis corre en cada PR.
-
-Si quieres verificar que está configurado:
-- Ve a **Settings** → **Security** → **Code security and analysis**
-- Bajo "Code scanning": deberías ver "CodeQL" listado
-
-## Paso 5: Configurar Branch Protection (recomendado)
-
-Para que los Security Gates funcionen como guardianes reales que bloqueen merges:
-
-1. Ve a **Settings** → **Branches**
-2. Haz clic en **Add branch protection rule**
-3. En "Branch name pattern": escribe `main`
-4. Activa:
-   - ✅ **Require status checks to pass before merging**
-   - ✅ **Require branches to be up to date before merging**
-5. En el buscador de status checks, agrega:
-   - `Seguridad (npm audit SCA)`
-   - `Validar escenarios de práctica`
-6. Haz clic en **Create**
-
-Con esto configurado, los PR con vulnerabilidades HIGH de SCA o un hallazgo pendiente
-del validador de práctica no podrán mergearse. CodeQL publica alertas de análisis; esas
-alertas no hacen fallar automáticamente su workflow y no deben configurarse como gate
-esperando ese comportamiento.
-
-## Paso 6: Verifica la configuración
-
-Crea un PR de prueba vacío para ver todos los checks:
-
-```bash
-git checkout -b test/setup-verification
-git commit --allow-empty -m "test: verificar configuración de CI"
-git push origin test/setup-verification
-```
-
-Abre el PR en GitHub. Deberías ver los siguientes checks ejecutándose:
-- `Calidad (ESLint)`
-- `Pruebas (Vitest)`
-- `Seguridad (npm audit SCA)`
-- `SAST — Análisis CodeQL (JavaScript)` *(puede tardar varios minutos en el primero)*
-- `Validar escenarios de práctica` (se ejecuta al cambiar archivos de escenarios)
-
-Cuando todos estén verdes, cierra el PR sin mergear y elimina la rama:
-
-```bash
-git checkout main
-git push origin --delete test/setup-verification
-git branch -D test/setup-verification
-```
-
-## Listo
-
-Tu fork está configurado. Ahora puedes comenzar con los escenarios:
-
-- [01 — SCA](scenarios/01-sca/INSTRUCTIONS.md)
-- [02 — Secret Scanning](scenarios/02-secret/INSTRUCTIONS.md)
-- [03 — SAST/CodeQL](scenarios/03-xss/INSTRUCTIONS.md)
+- SCA detecta una dependencia conocida; nunca sustituyas el manifiesto raíz.
+- Secret Scanning utiliza un marcador ficticio, no una alerta nativa ni una credencial real.
+- SAST valida `src/demo-insecure.js`; el gate ignora los ejemplos `innerHTML` que forman parte del simulador. CodeQL puede tardar y sus alertas no necesariamente hacen fallar el check.

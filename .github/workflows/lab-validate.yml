@@ -24,7 +24,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Instalar dependencias
@@ -62,11 +62,11 @@ jobs:
             fi
           fi
 
-          if echo "$CHANGED" | grep -q "demo-insecure\.js\|\.innerHTML"; then
-            if grep -rq "innerHTML" src/ 2>/dev/null; then
-              HAS_XSS=true
-              echo "scenario_xss=true" >> $GITHUB_OUTPUT
-            fi
+          # El caso se limita al fixture didáctico; el simulador contiene ejemplos internos
+          # con innerHTML que no pertenecen al ejercicio.
+          if echo "$CHANGED" | grep -q '^src/demo-insecure\.js$'; then
+            HAS_XSS=true
+            echo "scenario_xss=true" >> $GITHUB_OUTPUT
           fi
 
           echo "has_sca=$HAS_SCA" >> $GITHUB_OUTPUT
@@ -84,8 +84,7 @@ jobs:
           if [ $EXIT_CODE -ne 0 ]; then
             echo "sca_failed=true" >> $GITHUB_OUTPUT
             # Extraer la vulnerabilidad más relevante
-            VULN=$(grep -A2 "Severity: high" /tmp/audit.txt | head -5 || echo "HIGH vulnerability detected")
-            echo "sca_detail<<EOF" >> $GITHUB_OUTPUT
+                        echo "sca_detail<<EOF" >> $GITHUB_OUTPUT
             cat /tmp/audit.txt | head -30 >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
           else
@@ -103,11 +102,12 @@ jobs:
         id: sast
         if: steps.detect.outputs.has_xss == 'true'
         run: |
-          COUNT=$(grep -rn "\.innerHTML\s*=" src/ 2>/dev/null | grep -v "textContent" | wc -l)
+          TARGET=src/demo-insecure.js
+          COUNT=$(grep -E "\.innerHTML[[:space:]]*=" "$TARGET" 2>/dev/null | wc -l)
           echo "xss_count=$COUNT" >> $GITHUB_OUTPUT
           if [ "$COUNT" -gt "0" ]; then
             echo "xss_found=true" >> $GITHUB_OUTPUT
-            LOCATIONS=$(grep -rn "\.innerHTML\s*=" src/ 2>/dev/null | grep -v "textContent" | head -5)
+            LOCATIONS=$(grep -nE "\.innerHTML[[:space:]]*=" "$TARGET" 2>/dev/null | head -5)
             echo "xss_locations<<EOF" >> $GITHUB_OUTPUT
             echo "$LOCATIONS" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
@@ -145,27 +145,27 @@ jobs:
               const lodashVer = '${{ steps.detect.outputs.lodash_version }}';
               if (scaFailed) {
                 scenarioResults += `\n### 📦 Escenario 01 — SCA\n`;
-                scenarioResults += `❌ \`npm audit\` detectó vulnerabilidades HIGH\n`;
+                scenarioResults += `❌ \`npm audit\` detectó vulnerabilidades bloqueantes (HIGH/CRITICAL)\n`;
                 scenarioResults += `- Versión de lodash detectada: \`${lodashVer}\`\n`;
                 scenarioResults += `- CVE: CVE-2020-8203 (Prototype Pollution)\n`;
-                scenarioResults += `- **Acción requerida**: actualizar a \`lodash@^4.17.21\`\n`;
+                scenarioResults += `- **Acción requerida**: actualizar a \`lodash@4.18.1\`\n`;
               } else {
                 scenarioResults += `\n### 📦 Escenario 01 — SCA\n`;
-                scenarioResults += `✅ \`npm audit\` sin vulnerabilidades HIGH — dependencias seguras\n`;
+                scenarioResults += `✅ \`npm audit\` sin vulnerabilidades bloqueantes (HIGH/CRITICAL) — dependencias seguras\n`;
               }
             }
 
             if (hasSecret) {
               anyScenarioDetected = true;
-          const secretState = '${{ steps.detect.outputs.secret_state }}';
-          if (secretFound) {
+              const secretState = '${{ steps.detect.outputs.secret_state }}';
+              if (secretFound) {
                 scenarioResults += `\n### 🔑 Escenario 02 — Secret Scanning\n`;
-            if (secretState === 'found') {
-              scenarioResults += `❌ Marcador ficticio detectado por el validador educativo. No es un token real ni una alerta nativa de GitHub.\n`;
-              scenarioResults += `- Remedia el archivo usando \`process.env.API_TOKEN\`.\n`;
-            } else {
-              scenarioResults += `✅ Marcador ficticio eliminado; el archivo usa una variable de entorno. Hallazgo simulado resuelto.\n`;
-            }
+                if (secretState === 'found') {
+                  scenarioResults += `❌ Marcador ficticio detectado por el validador educativo. No es un token real ni una alerta nativa de GitHub.\n`;
+                  scenarioResults += `- Remedia el archivo usando \`process.env.API_TOKEN\`.\n`;
+                } else {
+                  scenarioResults += `✅ Marcador ficticio eliminado; el archivo usa una variable de entorno. Hallazgo simulado resuelto.\n`;
+                }
               }
             }
 
@@ -191,22 +191,7 @@ jobs:
               scenarioResults = '\n*No se detectaron archivos de escenarios de práctica en este PR.*\n';
             }
 
-            const body = `## 🔬 Hello Secure World — Validación de Laboratorio
-
-**PR:** #${{ github.event.pull_request.number }} | **Estudiante:** @${actor} | **Timestamp:** ${timestamp}
-${scenarioResults}
----
-
-### 🏷️ Código de verificación del servidor
-
-\`\`\`
-HSW-PRACTICE-${serverHash}
-\`\`\`
-
-Este código confirma que el workflow de validación ejecutó en el servidor de GitHub
-para este PR. Compártelo con tu instructor junto con tu código HSW del simulador.
-
-> Generado por \`lab-validate.yml\` — Run ID: \`${{ github.run_id }}\``;
+            const body = `## 🔬 Hello Secure World — Validación de Laboratorio\n\n**PR:** #${{ github.event.pull_request.number }} | **Estudiante:** @${actor} | **Timestamp:** ${timestamp}\n${scenarioResults}\n---\n\n### 🏷️ Código de verificación del servidor\n\n\`\`\`\nHSW-PRACTICE-${serverHash}\n\`\`\`\n\nEste código confirma que el workflow de validación ejecutó en el servidor de GitHub\npara este PR. Compártelo con tu instructor junto con tu código HSW del simulador.\n\n> Generado por \`lab-validate.yml\` — Run ID: \`${{ github.run_id }}\``;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -226,3 +211,4 @@ para este PR. Compártelo con tu instructor junto con tu código HSW del simulad
             echo "Hay hallazgos pendientes. Corrige el escenario y vuelve a subir los cambios."
             exit 1
           fi
+
